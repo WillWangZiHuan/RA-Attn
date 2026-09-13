@@ -1,0 +1,8 @@
+# This partial release tracks only the explicitly selected files below.
+/*
+!/.gitignore
+!/README.md
+!/source/
+/source/*
+!/source/attention.py
+!/source/fusion.py
