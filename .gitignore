@@ -1,8 +1,4 @@
-# This partial release tracks only the explicitly selected files below.
+# Track only the repository notice while the code is being reorganized.
 /*
 !/.gitignore
 !/README.md
-!/source/
-/source/*
-!/source/attention.py
-!/source/history_anomaly.py
