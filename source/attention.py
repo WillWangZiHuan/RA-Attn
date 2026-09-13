@@ -1,107 +1,154 @@
-"""Selected RA-Attn Transformer block, released for source reading.
+"""Selected v35 attention block for source reading (2026-09-13 snapshot).
 
-The complete forecasting backbone, model assembly, and prediction head are
-not included. This file provides no training or inference entry point.
-Support is an observation-count proxy, not calibrated predictive uncertainty.
+Extracted from the verified v35 implementation. Full model assembly, support
+construction, training and inference workflows are not included.
 """
 
+from __future__ import annotations
+
+import math
+
 import torch
-import torch.nn as nn
+from torch import nn
+from torch.nn import functional as F
 
 
-class TransformerBlock(nn.Module):
-    """Pre-LN block with a centered log-support key bias and a value gate.
-
-    The generic constructor default is alpha=1.0; the manuscript configuration
-    sets alpha=0.5. The attention value-gate floor is 0.3.
-    """
+class ReliabilityAttentionBlock(nn.Module):
+    """Pre-LN attention with layer-local complementary Key routing and Value gating."""
 
     def __init__(
         self,
         dim: int,
         heads: int,
-        alpha: float = 1.0,
-        eps: float = 1e-6,
-        gate_min: float = 0.3,
-        use_value_gating: bool = True,
-    ):
+        *,
+        attention_alpha: float,
+        value_gate_floor: float,
+    ) -> None:
         super().__init__()
-        if dim % heads != 0:
-            raise ValueError(f'dim({dim}) must be divisible by heads({heads})')
-        self.dim = dim
+        if dim <= 0 or heads <= 0 or dim % heads:
+            raise ValueError("dim and heads must be positive, with dim divisible by heads")
+        if not 0.0 <= value_gate_floor <= 1.0:
+            raise ValueError("value_gate_floor must lie in [0, 1]")
+
         self.heads = heads
         self.head_dim = dim // heads
-        self.scale = self.head_dim ** (-0.5)
-        self.alpha = alpha
-        self.eps = eps
-        self.gate_min = gate_min
-        self.use_value_gating = use_value_gating
-        self.last_influence = None
+        self.attention_alpha = float(attention_alpha)
+        self.value_gate_floor = float(value_gate_floor)
 
         self.norm1 = nn.LayerNorm(dim)
-        self.qkv = nn.Linear(dim, dim * 3)
-        self.proj = nn.Linear(dim, dim)
+        self.qkv = nn.Linear(dim, 3 * dim)
+        self.projection = nn.Linear(dim, dim)
         self.norm2 = nn.LayerNorm(dim)
         self.mlp = nn.Sequential(
-            nn.Linear(dim, dim * 4),
+            nn.Linear(dim, 4 * dim),
             nn.GELU(),
-            nn.Linear(dim * 4, dim),
+            nn.Linear(4 * dim, dim),
         )
+        # Each block and attention head owns a direct reliability-logit map.
+        # Zeros consume no RNG and preserve all pre-existing initialization.
+        self.key_quality_projection = nn.Parameter(torch.zeros(heads, 2))
 
     def forward(
         self,
-        x: torch.Tensor,
-        r_all: torch.Tensor,
-        collect_influence: bool = False,
+        tokens: torch.Tensor,
+        key_log_support: torch.Tensor,
+        key_quality_features: torch.Tensor,
+        value_strength: torch.Tensor,
+        token_valid_mask: torch.Tensor,
     ) -> torch.Tensor:
-        """Apply the block to tokens x (B, N, D) and aligned support (B, N, 1).
-
-        The caller supplies finite support values in [0, 1]. If a class token is
-        present, the caller supplies its support as 1 in the corresponding slot.
-        When requested, last_influence stores mean incoming attention per token.
-        """
-        if (
-            r_all.ndim != 3
-            or r_all.shape[0] != x.shape[0]
-            or r_all.shape[1] != x.shape[1]
-            or r_all.shape[2] != 1
-        ):
+        batch, token_count, dim = tokens.shape
+        if token_valid_mask.dtype != torch.bool or token_valid_mask.shape != (batch, token_count):
+            raise ValueError("token_valid_mask must be bool with shape (B, N)")
+        if token_valid_mask.device != tokens.device or not bool(token_valid_mask[:, 0].all()):
+            raise ValueError("token_valid_mask must share the device and retain CLS")
+        valid = token_valid_mask.unsqueeze(-1)
+        tokens = tokens.masked_fill(~valid, 0.0)
+        expected_strength_shape = (batch, token_count, 1)
+        if key_log_support.shape != expected_strength_shape:
             raise ValueError(
-                f'r_all must be (B,N,1), got {tuple(r_all.shape)} for x={tuple(x.shape)}'
+                "key_log_support must have shape "
+                f"{expected_strength_shape}, got {tuple(key_log_support.shape)}"
+            )
+        if key_quality_features.shape != (batch, token_count, 2):
+            raise ValueError(
+                "key_quality_features must have shape "
+                f"{(batch, token_count, 2)}, got {tuple(key_quality_features.shape)}"
+            )
+        if value_strength.shape != expected_strength_shape:
+            raise ValueError(
+                f"value_strength must have shape {expected_strength_shape}, "
+                f"got {tuple(value_strength.shape)}"
             )
 
-        bsz, n_tokens, _ = x.shape
-        h = self.norm1(x)
-        qkv = self.qkv(h).reshape(bsz, n_tokens, 3, self.heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)
-        q, k, v = (qkv[0], qkv[1], qkv[2])
+        normalized = self.norm1(tokens)
+        qkv = self.qkv(normalized).reshape(
+            batch, token_count, 3, self.heads, self.head_dim
+        )
+        query, key, value = qkv.permute(2, 0, 3, 1, 4).unbind(0)
 
-        # Content logits: (B, heads, queries, keys).
-        attn_logits = torch.matmul(q, k.transpose(-2, -1)) * self.scale
+        value_scalar = value_strength.squeeze(-1).to(dtype=tokens.dtype)
+        gate = self.value_gate_floor + (1.0 - self.value_gate_floor) * value_scalar
+        value = value * gate[:, None, :, None]
+        value = value.masked_fill(~token_valid_mask[:, None, :, None], 0.0)
 
-        # Center across the full sequence; broadcast the bias along the key axis.
-        r_key = r_all.squeeze(-1).to(dtype=h.dtype, device=h.device)
-        log_r = torch.log(self.eps + r_key)
-        log_r_centered = log_r - log_r.mean(dim=1, keepdim=True)
-        key_bias = self.alpha * log_r_centered
-        attn_logits = attn_logits + key_bias[:, None, None, :]
-
-        # Scale the transmitted value of each key token.
-        if self.use_value_gating:
-            gate_v = self.gate_min + (1.0 - self.gate_min) * r_key
-            gate_v = gate_v.to(dtype=v.dtype, device=v.device)
-            v = v * gate_v[:, None, :, None]
-
-        attn = torch.softmax(attn_logits, dim=-1)
-        if collect_influence:
-            # Average incoming attention over heads and query positions.
-            self.last_influence = attn.mean(dim=(1, 2)).detach()
+        key_log_prior = key_log_support.squeeze(-1).to(dtype=tokens.dtype)
+        if not bool(torch.isfinite(key_log_prior).all()):
+            raise ValueError("key log-support must be finite")
+        if self.attention_alpha == 0.0:
+            attention_bias = (
+                self.attention_alpha * key_log_prior
+            )[:, None, None, :]
+            attended = F.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=attention_bias.masked_fill(
+                    ~token_valid_mask[:, None, None, :], -torch.inf
+                ),
+                dropout_p=0.0,
+                is_causal=False,
+            )
         else:
-            self.last_influence = None
-        attn_out = torch.matmul(attn, v)
-        attn_out = attn_out.transpose(1, 2).reshape(bsz, n_tokens, self.dim)
-        attn_out = self.proj(attn_out)
-
-        x = x + attn_out
-        x = x + self.mlp(self.norm2(x))
-        return x
+            quality_key_logit = F.linear(
+                key_quality_features.float(), self.key_quality_projection.float()
+            ).to(dtype=tokens.dtype).transpose(1, 2)
+            # A per-head [B,H,1,N] float mask makes CUDA SDPA materialize the
+            # broadcast [B,H,N,N] bias at the production token count. Encode
+            # the same additive Key logit in eight aligned Q/K channels so the
+            # only explicit mask remains the compact shared padding mask.
+            # Store fixed and learned biases separately to avoid losing the
+            # small learned term when their sum is cast to BF16. The existing
+            # scale makes each extra (1, bias*sqrt(head_dim)) pair add bias.
+            padding_width = 8
+            query_padding = torch.zeros(
+                (*query.shape[:-1], padding_width),
+                dtype=query.dtype,
+                device=query.device,
+            )
+            query_padding[..., :2] = 1.0
+            key_padding = torch.zeros_like(query_padding)
+            key_padding[..., 0] = (
+                self.attention_alpha * key_log_prior[:, None, :]
+            ) * math.sqrt(self.head_dim)
+            key_padding[..., 1] = (
+                self.attention_alpha * quality_key_logit
+            ) * math.sqrt(self.head_dim)
+            value_padding = torch.zeros_like(query_padding)
+            query_augmented = torch.cat((query, query_padding), dim=-1)
+            key_augmented = torch.cat((key, key_padding), dim=-1)
+            value_augmented = torch.cat((value, value_padding), dim=-1)
+            padding_bias = torch.zeros_like(
+                key_log_prior[:, None, None, :]
+            ).masked_fill(~token_valid_mask[:, None, None, :], -torch.inf)
+            attended = F.scaled_dot_product_attention(
+                query_augmented,
+                key_augmented,
+                value_augmented,
+                attn_mask=padding_bias,
+                dropout_p=0.0,
+                is_causal=False,
+                scale=1.0 / math.sqrt(self.head_dim),
+            )[..., : self.head_dim]
+        attended = attended.transpose(1, 2).reshape(batch, token_count, dim)
+        tokens = tokens + self.projection(attended)
+        return (tokens + self.mlp(self.norm2(tokens))).masked_fill(~valid, 0.0)

@@ -6,24 +6,30 @@ Selected method source for **Reliability-Aware Attention** in grassland NDVI for
 >
 > **Full code and expanded global grassland dataset — coming soon.**
 
-## Current release
+## Current release: v35 development snapshot
 
-This public repository currently contains only selected implementation excerpts for understanding the attention and fusion operations. It is an incomplete code release and does not provide an end-to-end runnable example or the materials needed to reproduce the reported experiments.
+The current source excerpts come from the verified v35 implementation used by the 2026-09-13 experiment package. They are selected parts of a development implementation; they do not constitute a complete model release or identify a final selected experiment configuration.
 
 | File | Included component |
 | --- | --- |
-| [`source/attention.py`](source/attention.py) | A Transformer block with a centered log-support bias on the key axis and support-dependent value gating. |
-| [`source/fusion.py`](source/fusion.py) | Feature concatenation, linear projection, and support gating before the Transformer. |
+| [`source/attention.py`](source/attention.py) | `ReliabilityAttentionBlock`: separate key-support, learned per-head key features, value gating, padding masks, and the augmented Q/K computation used to avoid an explicit per-head attention-bias matrix. |
+| [`source/history_anomaly.py`](source/history_anomaly.py) | `observed_ndvi_history_anomaly`: deviations from the observed historical NDVI mean, excluding missing observations and padded years. |
 
-The full forecasting model, encoders, prediction head, support-construction and data-processing pipeline, training scripts, inference scripts, experiment configurations, model checkpoints, and datasets are **not included in this release**.
+The selected class and function are copied verbatim from the verified source file. Only module headers and the imports needed by these excerpts have been added. The full source file has SHA-256:
+
+`6ed0d446328b42495b4936be361ae07e22c91699d3b4699358cc2eeefef7862a`
+
+The complete v35 implementation uses 4×4 spatial tokens, distinct observation-count and QA-retention inputs, a history-NDVI anomaly embedding, and residual prediction added to same-pixel historical climatology. The `old` and `split_kv` variants share this implementation but differ in how support determines value strength. The full tokenization, support routing, anomaly projection, climatology construction, readout, and model assembly are **not included** in these excerpts.
+
+Training scripts, inference scripts, preprocessing, experiment configurations, model checkpoints, and datasets are also **not included in this release**. This repository provides no end-to-end runnable example and is not sufficient to reproduce the reported experiments.
 
 ## Reading the excerpts
 
-The attention block receives tokens of shape `(B, N, D)` and aligned support values of shape `(B, N, 1)`. The fusion component receives two token tensors of shape `(B, T, L, D)` and support of shape `(B, T, L, 1)`. Here, `B` is batch size, `N` is sequence length, `D` is embedding dimension, `T` is the number of input time steps, and `L` is the number of spatial tokens per time step.
+The attention block receives tokens `(B, N, D)`, key log-support `(B, N, 1)`, two key-quality features `(B, N, 2)`, value strength `(B, N, 1)`, and a Boolean valid-token mask `(B, N)`. Here, `B` is batch size, `N` is sequence length, and `D` is embedding dimension. The caller constructs these inputs and retains the class token in the valid-token mask.
 
-Support values are supplied by the caller in `[0, 1]`; the support-construction pipeline is not published here. When a class token is present, its aligned support is 1. The support signal is an observation-count proxy, not calibrated observation quality or predictive uncertainty.
+The history-anomaly function receives optical features `(B, T, 8, H, W)`, support `(B, T, 3, H, W)`, and a Boolean year mask `(B, T)`. It reads the NDVI feature at optical channel 7 and the observed-history indicator at support channel 2. Its output is the observed deviation in the input NDVI normalization units. The caller validates and constructs the inputs; this function does not load data or produce a forecast.
 
-These excerpts retain the computations and generic constructor defaults of the selected source components; comments and docstrings have been edited for readability. The manuscript configuration sets the key-bias coefficient to `alpha=0.5`, the fusion-gate floor to `gate_min=0.1`, and the attention value-gate floor to `gate_min=0.3`. The generic defaults in the two classes are not a complete experiment configuration.
+Observation support and QA retention describe the inputs. They are not calibrated prediction uncertainty. The learned key-feature projection in this v35 excerpt introduces trainable parameters; this development snapshot should not be described as the earlier parameter-free conditioning formulation.
 
 ## Release plan — coming soon
 
@@ -37,7 +43,7 @@ Both releases are in preparation. A release date has not yet been finalized; upd
 
 **本仓库目前仅公开选定的部分方法源码，供阅读和理解。训练和推理流程尚未发布，暂不提供可直接运行的完整实例。**
 
-当前公开内容仅包括注意力模块和融合模块的局部实现，不包含完整模型、训练及推理脚本、数据处理流程、实验配置、模型权重或数据集。当前仓库不足以完整复现论文实验。
+当前公开内容仅包括今天运行包所使用的 v35 注意力模块和历史 NDVI 异常计算片段，不包含完整模型、训练及推理脚本、数据处理流程、实验配置、模型权重或数据集。当前仓库不足以完整复现论文实验，也不表示最终模型配置已经选定。
 
 其余代码仍在整理和补充说明，整理完成后将全部上传，包括完整的训练与推理流程。
 
