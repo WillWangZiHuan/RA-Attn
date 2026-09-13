@@ -25,15 +25,3 @@ Alongside this work, we are expanding the dataset toward coverage of grasslands 
 Release updates will be announced here as the work progresses. Thank you for your patience and support.
 
 **Full code and expanded global grassland dataset — coming soon.**
-
-## 中文说明
-
-感谢您对 RA-Attn 的关注！本仓库目前分享核心可靠性感知注意力模块，供研究交流与参考。
-
-`source/attention.py` 包含可靠性感知注意力块的完整实现，涵盖注意力 Key 偏置和 Value 门控。该模块来自一修时期源码，并沿用于当前移除降水分支的 Landsat 修改版；公开模块本身不含降水输入。
-
-我们正在进一步整理其余代码及配套文档，包括完整模型和训练、推理流程。同时，数据集也在持续扩充，目标是覆盖全球草原。待相关整理与扩充工作完成后，我们计划将完整代码与扩充后的数据集一并公开发布。
-
-后续进展与发布信息将在本仓库持续更新。感谢您的耐心等待与支持！
-
-**完整代码与扩充后的全球草原数据集：Coming soon。**
