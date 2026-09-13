@@ -2,9 +2,7 @@
 
 Reliability-Aware Attention for grassland NDVI forecasting.
 
-> **Partial method source for reading: one core attention block. Training and inference workflows have not been released.**
->
-> **Full code and expanded global grassland dataset — coming soon.**
+> **Core attention module available now. Full code and expanded global grassland dataset — coming soon.**
 
 ## Included core module
 
@@ -16,32 +14,26 @@ The module includes the complete block implementation: query/key/value projectio
 
 The block receives token embeddings `x` with shape `(B, N, D)` and aligned reliability values `r_all` with shape `(B, N, 1)`, and returns updated embeddings with shape `(B, N, D)`. Reliability must be finite and lie in `[0, 1]`. Here, `B` is batch size, `N` is token count, and `D` is embedding width. The caller constructs and validates these inputs.
 
-The constructor exposes `alpha` for the key bias and `gate_min` for the value gate. Its defaults describe the standalone block and are not a complete experiment configuration. The optional `collect_influence` flag records attention averaged over heads and queries.
+The constructor exposes `alpha` for the key bias and `gate_min` for the value gate. The caller specifies the parameters for each experiment. The optional `collect_influence` flag records attention averaged over heads and queries.
 
-## Release scope
+## Code and dataset release plan
 
-Only this core block is included in the current source release. The complete forecasting model, token and reliability preparation, model assembly, prediction head, training and inference scripts, experiment configurations, model weights, and datasets have not been released here.
+Thank you for your interest in RA-Attn. This repository currently shares the core reliability-aware attention module for research and reference. We are organizing the remaining project code and accompanying documentation, including the complete model and the training and inference workflows.
 
-This repository currently provides no end-to-end runnable example and is insufficient to reproduce the reported experiments. This partial snapshot does not establish an exact source version for a particular paper submission or reported result.
+Alongside this work, we are expanding the dataset toward coverage of grasslands worldwide. Once the code organization and dataset expansion are complete, we plan to release the complete codebase together with the expanded dataset through this repository.
 
-## Remaining code — coming soon
+Release updates will be announced here as the work progresses. Thank you for your patience and support.
 
-The remaining code is being revised, organized, and documented. We plan to upload the full project code, including training and inference workflows, once this work is complete.
-
-## Dataset availability
-
-We are expanding the dataset toward coverage of grasslands worldwide. Once the expansion to global grassland coverage and data organization are complete, the expanded dataset will also be released through this repository alongside the full code.
-
-The dataset is not currently available for download here. A release date for the full code and dataset has not yet been finalized. Updates will be posted in this repository.
+**Full code and expanded global grassland dataset — coming soon.**
 
 ## 中文说明
 
-**本仓库当前仅公开一个核心注意力模块，供阅读和理解：部分源码，训练和推理流程尚未发布。**
+感谢您对 RA-Attn 的关注！本仓库目前分享核心可靠性感知注意力模块，供研究交流与参考。
 
 `source/attention.py` 包含可靠性感知注意力块的完整实现，涵盖注意力 Key 偏置和 Value 门控。该模块来自一修时期源码，并沿用于当前移除降水分支的 Landsat 修改版；公开模块本身不含降水输入。
 
-本次仅提供上述核心模块。完整预测模型、输入及可靠性构建、模型组装、预测头、训练与推理脚本、实验配置、模型权重和数据集暂未公开。当前内容不足以复现论文实验，也不表示已公开某次投稿或实验结果的完整源码快照。
+我们正在进一步整理其余代码及配套文档，包括完整模型和训练、推理流程。同时，数据集也在持续扩充，目标是覆盖全球草原。待相关整理与扩充工作完成后，我们计划将完整代码与扩充后的数据集一并公开发布。
 
-其余代码仍在修改和整理，计划整理完成后全部上传，包括完整的训练与推理流程。我们的数据集也在持续扩充，目标是覆盖全球草原；待全球草原范围的扩充及数据整理完成后，扩充后的数据集将与完整代码一并上传。
+后续进展与发布信息将在本仓库持续更新。感谢您的耐心等待与支持！
 
-**完整代码与全球草原数据集：Coming soon。具体发布时间尚未确定。**
+**完整代码与扩充后的全球草原数据集：Coming soon。**

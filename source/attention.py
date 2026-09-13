@@ -2,8 +2,8 @@
 
 This block applies a reliability-dependent key bias and value gate.
 It is extracted from the first-revision source family retained in the
-current Landsat-only working revision. Model assembly, data preparation,
-training and inference workflows are not part of this partial release.
+current Landsat-only working revision. The remaining project code is being
+organized for a future release together with the expanded dataset.
 """
 
 import torch
@@ -93,4 +93,3 @@ class TransformerBlock(nn.Module):
         x = x + attn_out
         x = x + self.mlp(self.norm2(x))
         return x
-
