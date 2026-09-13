@@ -1,7 +1,0 @@
-# Track only the selected core module and repository notice.
-/*
-!/.gitignore
-!/README.md
-!/source/
-/source/*
-!/source/attention.py
