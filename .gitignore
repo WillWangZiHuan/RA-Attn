@@ -1,8 +1,7 @@
-# Track only the explicitly selected public files.
+# Track only the selected core module and repository notice.
 /*
 !/.gitignore
 !/README.md
 !/source/
 /source/*
-!/source/patch_embedding.py
-!/source/reliability_pooling.py
+!/source/attention.py
