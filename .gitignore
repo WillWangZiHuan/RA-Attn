@@ -1,4 +1,8 @@
-# Track only the repository notice while the code is being reorganized.
+# Track only the explicitly selected public files.
 /*
 !/.gitignore
 !/README.md
+!/source/
+/source/*
+!/source/patch_embedding.py
+!/source/reliability_pooling.py
