@@ -2,10 +2,10 @@
 
 Reliability-Aware Attention for grassland NDVI-change forecasting.
 
-This repository provides the RA-Attn model code, including Landsat feature encoding, observation-support construction, token gating, reliability-aware attention, the spatiotemporal Transformer, and the NDVI-change prediction head. The implementation is available in [source/](source/).
+The core [attention module](source/attention.py) implements the reliability-dependent key bias and value gate.
 
-## Dataset — Coming soon
+## Coming soon
 
-We are organizing and expanding our grassland dataset toward global coverage. The dataset will be released through this repository once preparation is complete.
+We are organizing the remaining code and expanding the dataset toward global grassland coverage. Both will be released here once preparation is complete.
 
-Thank you for your interest in RA-Attn and for your support!
+Thank you for your interest and support!

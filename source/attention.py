@@ -1,4 +1,4 @@
-"""Reliability-aware attention block used by the complete RA-Attn model."""
+"""Core reliability-aware attention block for RA-Attn."""
 
 
 import torch
@@ -88,4 +88,3 @@ class TransformerBlock(nn.Module):
         x = x + attn_out
         x = x + self.mlp(self.norm2(x))
         return x
-
