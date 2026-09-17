@@ -22,7 +22,7 @@ The main configuration uses a key-bias coefficient of 0.5, a token-gate floor of
 | [source/token_gate.py](source/token_gate.py) | Support-dependent scaling before the Transformer. |
 | [source/backbone.py](source/backbone.py) | Spatial and temporal embeddings, class token, and six-block backbone. |
 | [source/attention.py](source/attention.py) | Reliability-dependent key bias and value gating. |
-| [source/__init__.py](source/__init__.py) | Public `RAAttn` import. |
+| [source/\_\_init\_\_.py](source/__init__.py) | Public `RAAttn` import. |
 
 ## Model interface
 
@@ -50,9 +50,9 @@ This release is extracted and reorganized from the optical-only model used in th
 
 ## Code and dataset release plan
 
-Thank you for your interest in RA-Attn. We are organizing the remaining project code and accompanying documentation, including data preparation, training, evaluation, and inference workflows, together with trained model weights.
+Thank you for your interest in RA-Attn. We are organizing the remaining project code and accompanying documentation, including data preparation, training, evaluation, and inference workflows.
 
-Alongside this work, we are expanding the dataset toward coverage of grasslands worldwide. Once the code organization and dataset expansion are complete, we plan to release the remaining implementation and model resources together with the expanded dataset through this repository.
+Alongside this work, we are expanding the dataset toward coverage of grasslands worldwide. Once the code organization and dataset expansion are complete, we plan to release the remaining project code together with the expanded dataset through this repository.
 
 Release updates will be announced here as the work progresses. Thank you for your patience and support.
 
