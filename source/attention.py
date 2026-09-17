@@ -1,10 +1,5 @@
-"""Selected core RA-Attn block for source reading.
+"""Reliability-aware attention block used by the complete RA-Attn model."""
 
-This block applies a reliability-dependent key bias and value gate.
-It is extracted from the first-revision source family retained in the
-current Landsat-only working revision. The remaining project code is being
-organized for a future release together with the expanded dataset.
-"""
 
 import torch
 import torch.nn as nn
@@ -93,3 +88,4 @@ class TransformerBlock(nn.Module):
         x = x + attn_out
         x = x + self.mlp(self.norm2(x))
         return x
+
